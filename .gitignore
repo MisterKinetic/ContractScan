@@ -1,0 +1,26 @@
+# Python
+ai-worker/.venv/
+ai-worker/__pycache__/
+ai-worker/*.pyc
+
+# Java
+backend/target/
+*.class
+*.jar
+
+# Node
+frontend-client/node_modules/
+
+# Environment - NEVER commit this
+.env
+
+# IDE
+.idea/
+.vscode/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Uploads
+backend/uploads/
