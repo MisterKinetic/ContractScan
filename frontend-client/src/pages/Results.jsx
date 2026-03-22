@@ -1,3 +1,4 @@
+import PDFViewer from '../components/PDFViewer'
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import axios from 'axios'
@@ -35,7 +36,7 @@ const riskConfig = {
   }
 }
 
-function FindingCard({ finding }) {
+function FindingCard({  finding, onSelect, isActive }) {
   const [expanded, setExpanded] = useState(false)
   const config = riskConfig[finding.riskLevel] || riskConfig.yellow
   const Icon = config.icon
@@ -43,7 +44,7 @@ function FindingCard({ finding }) {
   return (
     <div className={`border rounded-xl overflow-hidden transition-all duration-200 ${config.border}`}>
       <button
-        onClick={() => setExpanded(!expanded)}
+        onClick={() => { setExpanded(!expanded); onSelect(); }}
         className={`w-full text-left p-4 flex items-start gap-3 ${config.bg} hover:opacity-90 transition-opacity`}
       >
         <Icon className={`w-5 h-5 mt-0.5 flex-shrink-0 ${config.iconColor}`} />
@@ -107,6 +108,7 @@ export default function Results() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [filter, setFilter] = useState('all')
+  const [activeFinding, setActiveFinding] = useState(null)
   const [darkMode, setDarkMode] = useState(false)
   const [polling, setPolling] = useState(true)
   useEffect(() => {
@@ -239,7 +241,7 @@ export default function Results() {
               </p>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
 
               {/* Sidebar */}
               <div className="space-y-4">
@@ -282,7 +284,16 @@ export default function Results() {
               </div>
 
               {/* Findings */}
-              <div className="lg:col-span-2 space-y-3">
+              <div className="lg:col-span-3 space-y-3">
+                {/* PDF Viewer */}
+  <div className="bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 rounded-2xl p-4 mb-6 max-h-96 overflow-y-auto">
+    <p className="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-3">Original Document</p>
+    <PDFViewer
+      pdfUrl={`http://localhost:8080/api/contracts/${contractId}/pdf`}
+      findings={data?.findings || []}
+      activeFinding={activeFinding}
+    />
+  </div>
                 <div className="flex items-center justify-between mb-4">
                   <h2 className="font-semibold text-gray-900 dark:text-white">
                     {filter === 'all' ? 'All clauses' : `${filter === 'red' ? 'Red flags' : filter === 'yellow' ? 'Cautions' : 'Fair clauses'}`}
@@ -297,9 +308,14 @@ export default function Results() {
                     </button>
                   )}
                 </div>
-                {filteredFindings.map(finding => (
-                  <FindingCard key={finding.id} finding={finding} />
-                ))}
+               {filteredFindings.map(finding => (
+  <FindingCard 
+    key={finding.id} 
+    finding={finding}
+    onSelect={() => setActiveFinding(finding)}
+    isActive={activeFinding?.id === finding.id}
+  />
+))}
               </div>
             </div>
           </div>

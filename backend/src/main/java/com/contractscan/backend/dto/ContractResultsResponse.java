@@ -25,5 +25,16 @@ public class ContractResultsResponse {
         private String plainEnglish;
         private String suggestion;
         private Double confidence;
+        private List<BboxDto> bboxList;
+
+        @Data
+        @AllArgsConstructor
+        public static class BboxDto {
+            private Integer pageNumber;
+            private Double x;
+            private Double y;
+            private Double width;
+            private Double height;
+        }
     }
 }

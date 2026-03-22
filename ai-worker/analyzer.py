@@ -71,7 +71,7 @@ Clause to analyze:
 Classification rules:
 - RED: Clause is seriously unfair or dangerous. Examples: unlimited IP assignment, worldwide non-compete, no payment on termination, unlimited liability, forced arbitration waiving all rights, unilateral contract changes
 - YELLOW: Clause needs review, slightly one-sided but not dangerous. Examples: short payment terms, vague scope, standard arbitration, moderate non-compete
-- GREEN: Clause is fair and standard. Examples: reasonable confidentiality, mutual termination notice, standard IP for deliverables only, clear payment terms
+- GREEN: Clause is fair and standard. Examples: reasonable confidentiality, mutual termination notice, standard IP for deliverables only, clear payment terms. Standard boilerplate clauses that appear in most contracts are GREEN unless they have unusual restrictions.
 
 Be decisive. Most contracts have a mix of red, yellow, and green clauses.
 If a clause clearly protects only one party heavily — it is RED.

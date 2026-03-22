@@ -4,6 +4,7 @@ import com.contractscan.backend.dto.ContractResultsResponse;
 import com.contractscan.backend.dto.ContractUploadResponse;
 import com.contractscan.backend.model.Contract;
 import com.contractscan.backend.model.LegalFinding;
+import com.contractscan.backend.repository.BboxCoordRepository;
 import com.contractscan.backend.repository.ContractRepository;
 import com.contractscan.backend.repository.LegalFindingRepository;
 import lombok.RequiredArgsConstructor;
@@ -26,27 +27,24 @@ public class ContractService {
 
     private final ContractRepository contractRepository;
     private final LegalFindingRepository legalFindingRepository;
+    private final BboxCoordRepository bboxCoordRepository;
     private final RedisTemplate<String, String> redisTemplate;
 
     private static final String UPLOAD_DIR = "C:/Users/ahmed/Desktop/ContractScan/files/backend/uploads/";
     private static final UUID DEV_USER_ID = UUID.fromString("00000000-0000-0000-0000-000000000001");
 
     public ContractUploadResponse uploadContract(MultipartFile file) throws IOException {
-        // Create uploads directory if it doesn't exist
         Path uploadPath = Paths.get(UPLOAD_DIR);
         if (!Files.exists(uploadPath)) {
             Files.createDirectories(uploadPath);
         }
 
-        // Save file locally (will be S3 in production)
         String filename = UUID.randomUUID() + "_" + file.getOriginalFilename();
         Path filePath = uploadPath.resolve(filename);
         file.transferTo(filePath.toFile());
 
-        // Get dev user id from database
         UUID userId = getDevUserId();
 
-        // Create contract record in database
         Contract contract = new Contract();
         contract.setUserId(userId);
         contract.setOriginalFilename(file.getOriginalFilename());
@@ -54,7 +52,6 @@ public class ContractService {
         contract.setStatus("uploaded");
         contract = contractRepository.save(contract);
 
-        // Push job to Redis queue
         String jobMessage = contract.getId().toString() + "|" + filePath.toString();
         redisTemplate.opsForList().leftPush("contractscan:jobs", jobMessage);
 
@@ -89,26 +86,40 @@ public class ContractService {
         long yellowCount = legalFindingRepository.countByContractIdAndRiskLevel(contractId, "yellow");
         long greenCount = legalFindingRepository.countByContractIdAndRiskLevel(contractId, "green");
 
-        // Calculate risk score 0-100
         long total = redCount + yellowCount + greenCount;
         int riskScore = total > 0
             ? (int) ((redCount * 100 + yellowCount * 40) / total)
             : 0;
 
         List<ContractResultsResponse.FindingDto> findingDtos = findings.stream()
-            .map(f -> new ContractResultsResponse.FindingDto(
-                f.getId(),
-                f.getRiskLevel(),
-                f.getClauseType(),
-                f.getPlainEnglishText(),
-                f.getSuggestedAlternative(),
-                f.getConfidenceScore()
-            ))
-            .toList();
-
+    .map(f -> {
+        List<ContractResultsResponse.FindingDto.BboxDto> bboxList = new java.util.ArrayList<>();
+        if (f.getClauseChunkId() != null) {
+            bboxList = bboxCoordRepository.findByChunkId(f.getClauseChunkId())
+                .stream()
+                .map(b -> new ContractResultsResponse.FindingDto.BboxDto(
+                    b.getPageNumber(),
+                    b.getX(),
+                    b.getY(),
+                    b.getWidth(),
+                    b.getHeight()
+                ))
+                .toList();
+        }
+        return new ContractResultsResponse.FindingDto(
+            f.getId(),
+            f.getRiskLevel(),
+            f.getClauseType(),
+            f.getPlainEnglishText(),
+            f.getSuggestedAlternative(),
+            f.getConfidenceScore(),
+            bboxList
+        );
+    })
+    .toList();
         return new ContractResultsResponse(
             contract.getId(),
-            contract.getStatus(),
+            contract.getStatus(),  
             (int) redCount,
             (int) yellowCount,
             (int) greenCount,
@@ -118,8 +129,6 @@ public class ContractService {
     }
 
     private UUID getDevUserId() {
-        // In production this comes from JWT token
-        // For now return the dev user seeded in init.sql
         try {
             return contractRepository.findAll().stream()
                 .findFirst()
@@ -139,5 +148,10 @@ public class ContractService {
             case "failed" -> "Analysis failed, please try again";
             default -> "Unknown status";
         };
+    }
+
+    public Contract getContractById(UUID contractId) {
+        return contractRepository.findById(contractId)
+            .orElseThrow(() -> new RuntimeException("Contract not found"));
     }
 }
