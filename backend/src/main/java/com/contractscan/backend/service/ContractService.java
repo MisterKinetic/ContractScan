@@ -29,6 +29,7 @@ public class ContractService {
     private final LegalFindingRepository legalFindingRepository;
     private final BboxCoordRepository bboxCoordRepository;
     private final RedisTemplate<String, String> redisTemplate;
+    private final ProgressWebSocketService progressWebSocketService;
 
     private static final String UPLOAD_DIR = "C:/Users/ahmed/Desktop/ContractScan/files/backend/uploads/";
     private static final UUID DEV_USER_ID = UUID.fromString("00000000-0000-0000-0000-000000000001");
@@ -51,6 +52,8 @@ public class ContractService {
         contract.setS3Key(filePath.toString());
         contract.setStatus("uploaded");
         contract = contractRepository.save(contract);
+        progressWebSocketService.subscribeToContract(contract.getId());
+
 
         String jobMessage = contract.getId().toString() + "|" + filePath.toString();
         redisTemplate.opsForList().leftPush("contractscan:jobs", jobMessage);

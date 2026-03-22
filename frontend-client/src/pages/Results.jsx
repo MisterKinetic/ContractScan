@@ -1,9 +1,8 @@
 import PDFViewer from '../components/PDFViewer'
-import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import axios from 'axios'
 import { FileText, AlertTriangle, CheckCircle, XCircle, ChevronDown, ChevronUp, ArrowLeft, Moon, Sun } from 'lucide-react'
-
+import { useEffect, useRef, useState } from 'react'
 const API_BASE = 'http://localhost:8080/api'
 
 const riskConfig = {
@@ -111,6 +110,10 @@ export default function Results() {
   const [activeFinding, setActiveFinding] = useState(null)
   const [darkMode, setDarkMode] = useState(false)
   const [polling, setPolling] = useState(true)
+  const [progressMessage, setProgressMessage] = useState('Starting pipeline...')
+const [progressPercent, setProgressPercent] = useState(0)
+const [progressSteps, setProgressSteps] = useState([])
+const wsRef = useRef(null)
   useEffect(() => {
     if (darkMode) {
       document.documentElement.classList.add('dark')
@@ -118,6 +121,43 @@ export default function Results() {
       document.documentElement.classList.remove('dark')
     }
   }, [darkMode])
+   useEffect(() => {
+  const SockJS = window.SockJS
+  if (!SockJS) return
+
+  const socket = new SockJS('http://localhost:8080/ws')
+  wsRef.current = socket
+
+  socket.onopen = () => {
+    console.log('WebSocket connected')
+  }
+
+  socket.onmessage = (event) => {
+    try {
+      const outerData = JSON.parse(event.data)
+      if (outerData.type === 'MESSAGE') {
+        const data = JSON.parse(outerData.payload)
+        if (data.contractId === contractId) {
+          setProgressMessage(data.message)
+          setProgressPercent(data.percent)
+          setProgressSteps(prev => {
+            if (!prev.includes(data.message) && data.percent < 100) {
+              return [...prev, data.message]
+            }
+            return prev
+          })
+        }
+      }
+    } catch (e) {}
+  }
+
+  socket.onerror = (err) => console.log('WebSocket error', err)
+
+  return () => {
+    if (wsRef.current) wsRef.current.close()
+  }
+}, [contractId])
+ 
   useEffect(() => {
     if (!polling) return
 
@@ -126,7 +166,23 @@ export default function Results() {
         const statusRes = await axios.get(`${API_BASE}/contracts/${contractId}/status`)
         const status = statusRes.data.status
 
-        if (status === 'complete') {
+        if (status === 'uploaded') {
+          setProgressMessage('Contract uploaded, waiting for analysis...')
+          setProgressPercent(5)
+        } else if (status === 'processing') {
+          setProgressMessage('Parsing PDF and redacting personal information...')
+          setProgressPercent(20)
+        } else if (status === 'stage1_complete') {
+          setProgressMessage('Detecting clauses and generating embeddings...')
+          setProgressPercent(55)
+          setProgressSteps(prev => prev.includes('PDF parsed') ? prev : [...prev, 'PDF parsed'])
+        } else if (status === 'analyzing') {
+          setProgressMessage('Running AI risk analysis on each clause...')
+          setProgressPercent(75)
+          setProgressSteps(prev => prev.includes('Clauses detected') ? prev : [...prev, 'Clauses detected'])
+        } else if (status === 'complete') {
+          setProgressMessage('Analysis complete!')
+          setProgressPercent(100)
           const resultsRes = await axios.get(`${API_BASE}/contracts/${contractId}/results`)
           setData(resultsRes.data)
           setLoading(false)
@@ -185,35 +241,60 @@ export default function Results() {
           </button>
         </nav>
 
-        {/* Loading State */}
-        {loading && (
-          <div className="flex flex-col items-center justify-center min-h-96 gap-6">
-            <div className="w-12 h-12 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
-            <div className="text-center">
-              <p className="text-gray-700 dark:text-gray-300 font-medium text-lg mb-2">
-                Analyzing your contract...
-              </p>
-              <p className="text-gray-400 dark:text-gray-500 text-sm">
-                Running 7-stage AI pipeline · Usually takes 30-60 seconds
-              </p>
-            </div>
-            <div className="flex flex-col gap-2 w-64">
-              {[
-                'Parsing PDF structure',
-                'Redacting personal information',
-                'Detecting clause boundaries',
-                'Generating embeddings',
-                'Running AI analysis',
-                'Mapping risk to document',
-              ].map((step, i) => (
-                <div key={i} className="flex items-center gap-3">
-                  <div className="w-1.5 h-1.5 rounded-full bg-blue-400 animate-pulse" style={{ animationDelay: `${i * 0.2}s` }} />
-                  <p className="text-sm text-gray-500 dark:text-gray-400">{step}</p>
-                </div>
-              ))}
-            </div>
+       {loading && (
+  <div className="flex flex-col items-center justify-center min-h-96 gap-6 px-6">
+    <div className="relative w-16 h-16">
+  <div className="w-16 h-16 bg-gray-900 dark:bg-white rounded-2xl flex items-center justify-center">
+    <FileText className="w-8 h-8 text-white dark:text-gray-900" />
+  </div>
+  <div className="absolute -top-1 -right-1 w-5 h-5 bg-blue-600 rounded-full flex items-center justify-center">
+    <div className="w-2 h-2 bg-white rounded-full animate-ping" />
+  </div>
+</div>
+    <div className="text-center">
+      <p className="text-gray-700 dark:text-gray-300 font-medium text-lg mb-2">
+        Analyzing your contract...
+      </p>
+      <p className="text-gray-400 dark:text-gray-500 text-sm mb-6">
+        {progressMessage || 'Starting pipeline...'}
+      </p>
+    </div>
+
+    {/* Progress bar */}
+    <div className="w-full max-w-md">
+      <div className="flex justify-between text-xs text-gray-400 mb-2">
+        <span>Progress</span>
+        <span>{progressPercent}%</span>
+      </div>
+      <div className="h-2 bg-gray-100 dark:bg-gray-800 rounded-full overflow-hidden">
+        <div
+          className="h-full bg-blue-600 rounded-full transition-all duration-500"
+          style={{ width: `${progressPercent}%` }}
+        />
+      </div>
+    </div>
+
+    {/* Steps */}
+    <div className="flex flex-col gap-2 w-full max-w-md">
+      {progressSteps.map((step, i) => (
+        <div key={i} className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-900 rounded-xl">
+          <div className="w-5 h-5 rounded-full bg-green-500 flex items-center justify-center flex-shrink-0">
+            <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+            </svg>
           </div>
-        )}
+          <p className="text-sm text-gray-700 dark:text-gray-300">{step}</p>
+        </div>
+      ))}
+      {progressPercent < 100 && (
+        <div className="flex items-center gap-3 p-3 bg-blue-50 dark:bg-blue-950 rounded-xl border border-blue-200 dark:border-blue-800">
+          <div className="w-5 h-5 rounded-full border-2 border-blue-500 border-t-transparent animate-spin flex-shrink-0" />
+          <p className="text-sm text-blue-700 dark:text-blue-300">{progressMessage || 'Processing...'}</p>
+        </div>
+      )}
+    </div>
+  </div>
+)}
 
         {/* Error State */}
         {error && (

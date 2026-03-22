@@ -20,6 +20,24 @@ from loguru import logger
 
 load_dotenv(Path(__file__).parent.parent / ".env")
 
+def publish_progress(contract_id: str, stage: str, message: str, percent: int):
+    try:
+        import redis
+        import json
+        r = redis.Redis(
+            host=os.getenv("REDIS_HOST", "localhost"),
+            port=int(os.getenv("REDIS_PORT", 6379))
+        )
+        payload = json.dumps({
+            "contractId": contract_id,
+            "stage": stage,
+            "message": message,
+            "percent": percent
+        })
+        r.publish(f"progress:{contract_id}", payload)
+    except Exception as e:
+        logger.warning(f"Could not publish progress: {e}")
+
 connection_pool = psycopg2.pool.ThreadedConnectionPool(
     minconn=2,
     maxconn=10,
@@ -171,6 +189,10 @@ def run_week3_pipeline(contract_id: str, max_workers: int = 4):
             "DELETE FROM legal_findings WHERE contract_id = %s",
             (contract_id,)
         )
+        cur.execute(
+            "UPDATE contracts SET status = 'analyzing' WHERE id = %s",
+            (contract_id,)
+        )
     conn.commit()
     release_conn(conn)
 
@@ -197,6 +219,7 @@ def run_week3_pipeline(contract_id: str, max_workers: int = 4):
     release_conn(conn)
 
     logger.info(f"Analyzing {len(chunks)} chunks with {max_workers} parallel workers...")
+    publish_progress(contract_id, "analyzing", "Running AI risk analysis...", 75)
 
     results = {"red": 0, "yellow": 0, "green": 0, "failed": 0}
 
@@ -219,6 +242,7 @@ def run_week3_pipeline(contract_id: str, max_workers: int = 4):
                 )
 
     elapsed = round(time.time() - start_time, 1)
+    publish_progress(contract_id, "complete", "Analysis complete!", 100)
 
     conn = get_conn()
     with conn.cursor() as cur:

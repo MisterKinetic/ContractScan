@@ -16,6 +16,26 @@ from loguru import logger
 
 load_dotenv(Path(__file__).parent.parent / ".env")
 
+def publish_progress(contract_id: str, stage: str, message: str, percent: int):
+    try:
+        import redis
+        import json
+        r = redis.Redis(
+            host=os.getenv("REDIS_HOST", "localhost"),
+            port=int(os.getenv("REDIS_PORT", 6379))
+        )
+        payload = json.dumps({
+            "contractId": contract_id,
+            "stage": stage,
+            "message": message,
+            "percent": percent
+        })
+        r.publish(f"progress:{contract_id}", payload)
+    except Exception as e:
+        logger.warning(f"Could not publish progress: {e}")
+
+
+
 def get_db_connection():
     return psycopg2.connect(
         host=os.getenv("DB_HOST", "localhost"),
@@ -172,13 +192,16 @@ def run_week2_pipeline(contract_id: str):
             ]
 
         logger.info(f"Loaded {len(blocks)} blocks from database")
+        publish_progress(contract_id, "chunking", "Detecting clause boundaries...", 45)
 
         chunker = ClauseChunker()
         chunks = chunker.chunk(blocks)
         saved_chunks = chunker.save_chunks(conn, contract_id, chunks)
+        publish_progress(contract_id, "embedding", "Generating semantic embeddings...", 60)
 
         embedder = EmbeddingGenerator()
         embedder.embed_chunks(conn, contract_id, saved_chunks)
+        publish_progress(contract_id, "stage2_done", "Embeddings stored", 70)
 
         logger.info("=== Week 2 pipeline complete ===")
         logger.info(f"  Chunks created: {len(saved_chunks)}")

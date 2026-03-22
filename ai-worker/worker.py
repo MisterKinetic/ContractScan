@@ -26,6 +26,25 @@ from loguru import logger
 
 load_dotenv(Path(__file__).parent.parent / ".env")
 
+def publish_progress(contract_id: str, stage: str, message: str, percent: int):
+    """Push progress update to Redis so Spring Boot can forward to WebSocket."""
+    try:
+        import redis
+        import json
+        r = redis.Redis(
+            host=os.getenv("REDIS_HOST", "localhost"),
+            port=int(os.getenv("REDIS_PORT", 6379))
+        )
+        payload = json.dumps({
+            "contractId": contract_id,
+            "stage": stage,
+            "message": message,
+            "percent": percent
+        })
+        r.publish(f"progress:{contract_id}", payload)
+    except Exception as e:
+        logger.warning(f"Could not publish progress: {e}")
+
 # =============================================
 # DATA CLASSES
 # =============================================
@@ -244,6 +263,7 @@ def run_week1_pipeline(pdf_path: str, contract_id: str):
     The contract status is updated to 'processing'.
     """
     logger.info(f"=== Starting Week 1 pipeline for contract {contract_id} ===")
+    publish_progress(contract_id, "parsing", "Parsing PDF structure...", 10)
 
     conn = get_db_connection()
 
@@ -260,6 +280,7 @@ def run_week1_pipeline(pdf_path: str, contract_id: str):
         parser = PDFParser()
         blocks, page_count = parser.parse(pdf_path)
         parser.save_blocks(conn, contract_id, blocks)
+        publish_progress(contract_id, "pii", "Redacting personal information...", 25)
 
         # Update page count
         with conn.cursor() as cur:
@@ -274,6 +295,7 @@ def run_week1_pipeline(pdf_path: str, contract_id: str):
         full_text = "\n".join(b.raw_text for b in blocks)
         result = redactor.redact(full_text)
         redactor.save_token_map(conn, contract_id, result.token_map)
+        publish_progress(contract_id, "stage1_done", "PDF parsed and anonymized", 35)
 
         logger.info("=== Week 1 pipeline complete ===")
         logger.info(f"  Pages: {page_count}")
