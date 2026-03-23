@@ -68,7 +68,7 @@ export default function Home() {
               <FileText className="w-4 h-4 text-white dark:text-gray-900" />
             </div>
             <span className="font-semibold text-gray-900 dark:text-white text-lg tracking-tight">
-              Contract<span className="text-blue-600">Scan</span>
+              Claus<span className="text-blue-600">ify</span>
             </span>
           </div>
           <button
