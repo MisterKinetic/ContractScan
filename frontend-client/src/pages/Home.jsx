@@ -3,7 +3,7 @@ import { useDropzone } from 'react-dropzone'
 import { useNavigate } from 'react-router-dom'
 import axios from 'axios'
 import { FileText, Shield, Zap, Users, ChevronRight, Moon, Sun } from 'lucide-react'
-
+import Logo from '../components/Logo'
 const API_BASE = 'http://localhost:8080/api'
 
 export default function Home() {
@@ -64,9 +64,7 @@ export default function Home() {
         {/* Navbar */}
         <nav className="border-b border-gray-100 dark:border-gray-800 px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 bg-gray-900 dark:bg-white rounded-lg flex items-center justify-center">
-              <FileText className="w-4 h-4 text-white dark:text-gray-900" />
-            </div>
+             <Logo size={32} />
             <span className="font-semibold text-gray-900 dark:text-white text-lg tracking-tight">
               Claus<span className="text-blue-600">ify</span>
             </span>

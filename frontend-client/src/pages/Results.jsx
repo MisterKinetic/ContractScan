@@ -3,6 +3,8 @@ import { useParams, useNavigate } from 'react-router-dom'
 import axios from 'axios'
 import { FileText, AlertTriangle, CheckCircle, XCircle, ChevronDown, ChevronUp, ArrowLeft, Moon, Sun } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
+import Logo from '../components/Logo'
+
 const API_BASE = 'http://localhost:8080/api'
 
 const riskConfig = {
@@ -225,9 +227,7 @@ const wsRef = useRef(null)
               <ArrowLeft className="w-5 h-5 text-gray-600 dark:text-gray-400" />
             </button>
             <div className="flex items-center gap-2">
-              <div className="w-7 h-7 bg-gray-900 dark:bg-white rounded-lg flex items-center justify-center">
-                <FileText className="w-3.5 h-3.5 text-white dark:text-gray-900" />
-              </div>
+              <Logo size={28} /> 
               <span className="font-semibold text-gray-900 dark:text-white tracking-tight">
                 Claus<span className="text-blue-600">ify</span>
               </span>
