@@ -1,43 +1,20 @@
-spring.application.name=backend
-# App
 spring.application.name=contractscan-backend
 server.port=8080
-
-# PostgreSQL
 spring.datasource.url=jdbc:postgresql://localhost:5432/contractscan
 spring.datasource.username=contractscan
 spring.datasource.password=password
 spring.datasource.driver-class-name=org.postgresql.Driver
-
-# JPA
 spring.jpa.hibernate.ddl-auto=none
 spring.jpa.show-sql=false
 spring.jpa.properties.hibernate.dialect=org.hibernate.dialect.PostgreSQLDialect
-
-# Redis
 spring.data.redis.host=localhost
 spring.data.redis.port=6379
-
-# File upload size limits
 spring.servlet.multipart.max-file-size=50MB
 spring.servlet.multipart.max-request-size=50MB
-
-# Logging
 logging.level.com.contractscan=DEBUG
-
 management.endpoints.web.exposure.include=health,info
-
-# Python worker path (override with environment variable in production)
 ai.worker.path=${AI_WORKER_PATH:../ai-worker}
-
-# App environment
 app.environment=${APP_ENV:development}
-
-# Google OAuth2
-spring.security.oauth2.client.registration.google.client-id=796173277859-cb24rc1bi5dbg0mi0j36nddae9fkk0lu.apps.googleusercontent.com
-spring.security.oauth2.client.registration.google.client-secret=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
+spring.security.oauth2.client.registration.google.client-id=YOUR_CLIENT_ID_HERE
+spring.security.oauth2.client.registration.google.client-secret=YOUR_CLIENT_SECRET_HERE
 spring.security.oauth2.client.registration.google.scope=email,profile
-
-
-
-
