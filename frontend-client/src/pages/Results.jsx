@@ -108,7 +108,9 @@ export default function Results() {
   const [error, setError] = useState(null)
   const [filter, setFilter] = useState('all')
   const [activeFinding, setActiveFinding] = useState(null)
-  const [darkMode, setDarkMode] = useState(false)
+  const [darkMode, setDarkMode] = useState(() => {
+  return localStorage.getItem('darkMode') === 'true'
+  })
   const [polling, setPolling] = useState(true)
   const [progressMessage, setProgressMessage] = useState('Starting pipeline...')
 const [progressPercent, setProgressPercent] = useState(0)
@@ -117,6 +119,7 @@ const wsRef = useRef(null)
   useEffect(() => {
     if (darkMode) {
       document.documentElement.classList.add('dark')
+      localStorage.setItem('darkMode', 'true')
     } else {
       document.documentElement.classList.remove('dark')
     }

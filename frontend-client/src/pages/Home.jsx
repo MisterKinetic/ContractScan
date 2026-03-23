@@ -9,7 +9,9 @@ const API_BASE = 'http://localhost:8080/api'
 export default function Home() {
   const [uploading, setUploading] = useState(false)
   const [error, setError] = useState(null)
-  const [darkMode, setDarkMode] = useState(false)
+  const [darkMode, setDarkMode] = useState(() => {
+  return localStorage.getItem('darkMode') === 'true'
+  })
   const navigate = useNavigate()
 
   const onDrop = useCallback(async (acceptedFiles) => {
@@ -46,13 +48,14 @@ export default function Home() {
   })
    
  useEffect(() => {
-    console.log('darkMode changed:', darkMode)
-    if (darkMode) {
-      document.documentElement.classList.add('dark')
-    } else {
-      document.documentElement.classList.remove('dark')
-    }
-  }, [darkMode])
+  if (darkMode) {
+    document.documentElement.classList.add('dark')
+    localStorage.setItem('darkMode', 'true')
+  } else {
+    document.documentElement.classList.remove('dark')
+    localStorage.setItem('darkMode', 'false')
+  }
+}, [darkMode])
 
   return (
     <div>

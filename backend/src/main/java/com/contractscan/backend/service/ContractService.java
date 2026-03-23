@@ -31,7 +31,7 @@ public class ContractService {
     private final RedisTemplate<String, String> redisTemplate;
     private final ProgressWebSocketService progressWebSocketService;
 
-    private static final String UPLOAD_DIR = "C:/Users/ahmed/Desktop/ContractScan/files/backend/uploads/";
+    private static final String UPLOAD_DIR = System.getProperty("user.home") + "/contractscan-uploads/";
     private static final UUID DEV_USER_ID = UUID.fromString("00000000-0000-0000-0000-000000000001");
 
     public ContractUploadResponse uploadContract(MultipartFile file) throws IOException {

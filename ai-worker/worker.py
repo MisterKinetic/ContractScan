@@ -176,19 +176,7 @@ class PIIRedactor:
 # =============================================
 
 class PDFParser:
-    """
-    Extracts text blocks from a PDF with full bounding box coordinates.
-    Every block gets: page number, x, y, width, height, text.
-
-    This data is stored immediately and used later (Stage 7) to map
-    LLM findings back to visual positions for PDF highlighting.
-    """
-
     def parse(self, pdf_path: str) -> tuple[list[BBoxBlock], int]:
-        """
-        Parse a PDF and return all text blocks with coordinates.
-        Returns: (list of BBoxBlock, total page count)
-        """
         logger.info(f"Parsing PDF: {pdf_path}")
         doc = fitz.open(pdf_path)
         blocks: list[BBoxBlock] = []
@@ -196,13 +184,11 @@ class PDFParser:
 
         for page_num in range(len(doc)):
             page = doc[page_num]
-            # get_text("blocks") returns: (x0, y0, x1, y1, text, block_no, block_type)
             raw_blocks = page.get_text("blocks")
 
             for raw in raw_blocks:
                 x0, y0, x1, y1, text, _, block_type = raw
 
-                # block_type 0 = text, 1 = image — skip images
                 if block_type != 0:
                     continue
 
@@ -211,7 +197,7 @@ class PDFParser:
                     continue
 
                 blocks.append(BBoxBlock(
-                    page_number=page_num + 1,  # 1-indexed for humans
+                    page_number=page_num + 1,
                     x=round(x0, 2),
                     y=round(y0, 2),
                     width=round(x1 - x0, 2),
@@ -226,7 +212,6 @@ class PDFParser:
         return blocks, page_num + 1
 
     def save_blocks(self, conn, contract_id: str, blocks: list[BBoxBlock]):
-        """Persist all bounding box blocks to the database."""
         with conn.cursor() as cur:
             for block in blocks:
                 cur.execute(
