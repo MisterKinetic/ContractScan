@@ -99,6 +99,26 @@ public ResponseEntity<?> uploadContract(
         return ResponseEntity.ok(Map.of("loggedIn", false));
     }
 
+    @GetMapping("/user-history")
+    public ResponseEntity<?> getUserHistory(Authentication authentication) {
+        String email;
+        if (authentication != null && authentication.isAuthenticated()) {
+            if (authentication.getPrincipal() instanceof OAuth2User oauthUser) {
+                email = oauthUser.getAttribute("email");
+            } else {
+                email = authentication.getName();
+            }
+        } else {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("User not authenticated");
+        }
+
+        try {
+            return ResponseEntity.ok(contractService.getUserHistory(email));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(e.getMessage());
+        }
+    }
+
     @GetMapping("/{contractId}/pdf")
     public ResponseEntity<Resource> getPdf(@PathVariable UUID contractId) {
         try {

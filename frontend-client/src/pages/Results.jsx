@@ -1,5 +1,5 @@
 import PDFViewer from '../components/PDFViewer'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useParams, useNavigate, Link } from 'react-router-dom'
 import axios from 'axios'
 import { FileText, AlertTriangle, CheckCircle, XCircle, ChevronDown, ChevronUp, ArrowLeft, Moon, Sun } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
@@ -110,6 +110,7 @@ export default function Results() {
   const [error, setError] = useState(null)
   const [filter, setFilter] = useState('all')
   const [activeFinding, setActiveFinding] = useState(null)
+  const [user, setUser] = useState(null)
   const [darkMode, setDarkMode] = useState(() => {
   return localStorage.getItem('darkMode') === 'true'
   })

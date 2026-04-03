@@ -1,5 +1,6 @@
 package com.contractscan.backend.service;
 
+import com.contractscan.backend.dto.ContractHistoryDto;
 import com.contractscan.backend.dto.ContractResultsResponse;
 import com.contractscan.backend.dto.ContractUploadResponse;
 import com.contractscan.backend.model.Contract;
@@ -182,5 +183,29 @@ private UUID getUserIdByEmail(String email) {
     public Contract getContractById(UUID contractId) {
         return contractRepository.findById(contractId)
             .orElseThrow(() -> new RuntimeException("Contract not found"));
+    }
+
+    public List<ContractHistoryDto> getUserHistory(String email) {
+        UUID userId = getUserIdByEmail(email);
+        List<Contract> contracts = contractRepository.findByUserIdOrderByCreatedAtDesc(userId);
+
+        return contracts.stream().map(c -> {
+            long redCount = legalFindingRepository.countByContractIdAndRiskLevel(c.getId(), "red");
+            long yellowCount = legalFindingRepository.countByContractIdAndRiskLevel(c.getId(), "yellow");
+            long greenCount = legalFindingRepository.countByContractIdAndRiskLevel(c.getId(), "green");
+
+            long total = redCount + yellowCount + greenCount;
+            int riskScore = total > 0
+                ? (int) ((redCount * 100 + yellowCount * 40) / total)
+                : 0;
+
+            return new ContractHistoryDto(
+                c.getId(),
+                c.getOriginalFilename(),
+                c.getCreatedAt(),
+                riskScore,
+                c.getStatus()
+            );
+        }).toList();
     }
 }

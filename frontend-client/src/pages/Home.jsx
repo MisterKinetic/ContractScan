@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect } from 'react'
 import { useDropzone } from 'react-dropzone'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, Link } from 'react-router-dom'
 import axios from 'axios'
 import { FileText, Shield, Zap, Users, ChevronRight, Moon, Sun } from 'lucide-react'
 import Logo from '../components/Logo'
@@ -84,7 +84,13 @@ export default function Home() {
               Claus<span className="text-blue-600">ify</span>
             </span>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-6">
+            {user && (
+              <Link to="/history" className="text-sm font-medium text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white transition-colors">
+                History
+              </Link>
+            )}
+            <div className="flex items-center gap-3">
             {user ? (
               <div className="flex items-center gap-4">
                 <div className="flex flex-col items-end">
@@ -119,7 +125,8 @@ export default function Home() {
               }
             </button>
           </div>
-        </nav>
+        </div>
+      </nav>
 
         {/* Hero */}
         <div className="max-w-4xl mx-auto px-6 pt-20 pb-16 text-center">
