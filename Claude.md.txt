@@ -1,0 +1,38 @@
+# CLAUDE.md — Project: Clausify (ContractScan)
+
+## 1. Context & Tech Stack
+- **Goal:** Privacy-first AI contract reviewer (PDF -> RAG -> Risk Analysis).
+- **Backend:** Java 25 / Spring Boot 3.5.1 (Maven). Port: 8080.
+- **AI Worker:** Python 3.11.9 (FastAPI/RQ). Port: 8000.
+- **Frontend:** React 19 (Vite + Tailwind v4). Port: 5173.
+- **Infra:** PostgreSQL (PGVector), Redis (Queue), MinIO (S3), Ollama (Qwen 2.5 7B).
+
+## 2. Core Architecture Patterns
+- **User Auth:** Google OAuth2. Identifiers passed via `X-User-Email` header.
+- **Processing:** Async via Redis. Statuses: `uploaded` -> `processing` -> `analyzing` -> `complete`.
+- **CORS:** Controlled via `SecurityConfig.java`. Wildcards (`*`) are FORBIDDEN with `allowCredentials(true)`.
+- **Data:** - Contracts linked to `User` entity. 
+  - Findings mapped to PDF coordinates (BBox).
+  - PII is redacted/mapped via `pii_token_map` before LLM processing.
+
+## 3. Development Commands
+- **Start Infra:** `docker-compose up -d`
+- **Backend Run:** `./mvnw spring-boot:run`
+- **Worker Run:** `source .venv/bin/activate && python worker.py`
+- **Frontend Run:** `npm run dev`
+
+## 4. Current State & Blockers
+- **Status:** Core AI pipeline (7-stage) is functional.
+- **Active Issue:** Login Data Isolation. Contract uploads must link to the `X-User-Email` header, not `dev@contractscan.local`.
+- **Next Up:** 1. Fix User lookup in `ContractService`. 2. Implement `/api/contracts/my-contracts` endpoint.
+
+## 5. File Map (Python AI Worker)
+- `worker.py`: Entry point. Listens to Redis queue, manages 7-stage pipeline.
+- `embedder.py`: Handles clause chunking and PGVector embedding generation.
+- `analyzer.py`: Orchestrates Qwen 2.5 via Ollama for legal risk analysis.
+
+## 6. File Map (Java Backend)
+- `ContractController.java`: REST endpoints for upload/status/results.
+- `ContractService.java`: Business logic, S3/MinIO uploads, Redis job producer.
+- `SecurityConfig.java`: OAuth2 and CORS configuration.
+- `User.java` / `Contract.java`: JPA Entities for PostgreSQL.

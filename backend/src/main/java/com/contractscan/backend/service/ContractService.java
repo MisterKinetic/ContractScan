@@ -7,11 +7,16 @@ import com.contractscan.backend.model.LegalFinding;
 import com.contractscan.backend.repository.BboxCoordRepository;
 import com.contractscan.backend.repository.ContractRepository;
 import com.contractscan.backend.repository.LegalFindingRepository;
+import com.contractscan.backend.repository.UserRepository;
+
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.oauth2.core.user.OAuth2User;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -19,6 +24,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.List;
 import java.util.UUID;
+import com.contractscan.backend.model.User;
 
 @Service
 @RequiredArgsConstructor
@@ -26,6 +32,7 @@ import java.util.UUID;
 public class ContractService {
 
     private final ContractRepository contractRepository;
+    private final UserRepository userRepository;
     private final LegalFindingRepository legalFindingRepository;
     private final BboxCoordRepository bboxCoordRepository;
     private final RedisTemplate<String, String> redisTemplate;
@@ -34,7 +41,7 @@ public class ContractService {
     private static final String UPLOAD_DIR = System.getProperty("user.home") + "/contractscan-uploads/";
     private static final UUID DEV_USER_ID = UUID.fromString("00000000-0000-0000-0000-000000000001");
 
-    public ContractUploadResponse uploadContract(MultipartFile file) throws IOException {
+    public ContractUploadResponse uploadContract(MultipartFile file, String userEmail) throws IOException {
         Path uploadPath = Paths.get(UPLOAD_DIR);
         if (!Files.exists(uploadPath)) {
             Files.createDirectories(uploadPath);
@@ -44,7 +51,7 @@ public class ContractService {
         Path filePath = uploadPath.resolve(filename);
         file.transferTo(filePath.toFile());
 
-        UUID userId = getDevUserId();
+        UUID userId =getUserIdByEmail(userEmail);
 
         Contract contract = new Contract();
         contract.setUserId(userId);
@@ -131,17 +138,36 @@ public class ContractService {
         );
     }
 
-    private UUID getDevUserId() {
-        try {
-            return contractRepository.findAll().stream()
-                .findFirst()
-                .map(Contract::getUserId)
-                .orElse(DEV_USER_ID);
-        } catch (Exception e) {
-            return DEV_USER_ID;
+   private UUID getUserIdFromAuth(Authentication authentication) {
+    log.info("Authentication: {}", authentication);
+    log.info("Principal: {}", authentication != null ? authentication.getPrincipal() : "null");
+    try {
+        if (authentication != null && authentication.getPrincipal() instanceof OAuth2User oAuth2User) {
+            String email = oAuth2User.getAttribute("email");
+            return userRepository.findByEmail(email)
+                .map(User::getId)
+                .orElse(getDevUserId());
         }
+    } catch (Exception e) {
+        log.warn("Could not get user from auth: {}", e.getMessage());
     }
+    return getDevUserId();
+}
 
+private UUID getDevUserId() {
+    return userRepository.findAll().stream()
+        .findFirst()
+        .map(User::getId)
+        .orElse(UUID.fromString("00000000-0000-0000-0000-000000000001"));
+}
+private UUID getUserIdByEmail(String email) {
+    if (email != null) {
+        return userRepository.findByEmail(email)
+            .map(User::getId)
+            .orElse(getDevUserId());
+    }
+    return getDevUserId();
+}
     private String getStatusMessage(String status) {
         return switch (status) {
             case "uploaded" -> "Contract uploaded, waiting for analysis";

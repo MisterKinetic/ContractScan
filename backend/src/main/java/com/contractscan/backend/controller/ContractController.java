@@ -9,51 +9,65 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.core.io.FileSystemResource;
 import org.springframework.core.io.Resource;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
-import java.io.IOException;
+
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.Map;
 import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/contracts")
+@CrossOrigin(origins = "http://localhost:5173", allowCredentials = "true")
 @RequiredArgsConstructor
 @Slf4j
-@CrossOrigin(origins = "*")
 public class ContractController {
 
     private final ContractService contractService;
 
     @PostMapping("/upload")
-    public ResponseEntity<ContractUploadResponse> uploadContract(
-            @RequestParam("file") MultipartFile file) {
-        try {
-            if (file.isEmpty()) {
-                return ResponseEntity.badRequest()
-                    .body(new ContractUploadResponse(null, "error", "No file provided"));
-            }
+public ResponseEntity<?> uploadContract(
+        @RequestParam("file") MultipartFile file,
+        Authentication authentication) {
 
-            if (!file.getOriginalFilename().toLowerCase().endsWith(".pdf")) {
-                return ResponseEntity.badRequest()
-                    .body(new ContractUploadResponse(null, "error", "Only PDF files are supported"));
-            }
+    String email;
 
-            ContractUploadResponse response = contractService.uploadContract(file);
-            return ResponseEntity.ok(response);
-
-        } catch (IOException e) {
-            log.error("Upload failed: {}", e.getMessage());
-            return ResponseEntity.internalServerError()
-                .body(new ContractUploadResponse(null, "error", "Upload failed: " + e.getMessage()));
+    // 1. Determine identity: Logged in vs Guest
+    if (authentication != null && authentication.isAuthenticated()) {
+        if (authentication.getPrincipal() instanceof OAuth2User oauthUser) {
+            email = oauthUser.getAttribute("email");
+        } else {
+            email = authentication.getName();
         }
+    } else {
+        // Fallback for Guest
+        email = "guest@contractscan.local"; 
     }
 
+    // 2. Error Check (only if even guest identification fails somehow)
+    if (email == null) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Email not found");
+    }
+
+    try {
+        log.info("Processing upload for: {}", email);
+        // Your existing service call
+        ContractUploadResponse response = contractService.uploadContract(file, email);
+        return ResponseEntity.ok(response);
+    } catch (Exception e) {
+        log.error("Upload error: {}", e.getMessage());
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(e.getMessage());
+    }
+}
+
     @GetMapping("/{contractId}/status")
-    public ResponseEntity<ContractUploadResponse> getStatus(
-            @PathVariable UUID contractId) {
+    public ResponseEntity<ContractUploadResponse> getStatus(@PathVariable UUID contractId) {
         try {
             return ResponseEntity.ok(contractService.getStatus(contractId));
         } catch (RuntimeException e) {
@@ -62,33 +76,46 @@ public class ContractController {
     }
 
     @GetMapping("/{contractId}/results")
-    public ResponseEntity<ContractResultsResponse> getResults(
-            @PathVariable UUID contractId) {
+    public ResponseEntity<ContractResultsResponse> getResults(@PathVariable UUID contractId) {
         try {
             return ResponseEntity.ok(contractService.getResults(contractId));
         } catch (RuntimeException e) {
             return ResponseEntity.notFound().build();
         }
-        
     }
+
+    @GetMapping("/me")
+    public ResponseEntity<?> getCurrentUser(Authentication authentication) {
+        if (authentication != null && authentication.getPrincipal() instanceof OAuth2User user) {
+            String email = user.getAttribute("email");
+            String name = user.getAttribute("name");
+            
+            return ResponseEntity.ok(Map.of(
+                "loggedIn", true, 
+                "email", email,
+                "name", name != null ? name : "User"
+            ));
+        }
+        return ResponseEntity.ok(Map.of("loggedIn", false));
+    }
+
     @GetMapping("/{contractId}/pdf")
-public ResponseEntity<Resource> getPdf(@PathVariable UUID contractId) {
-    try {
-        Contract contract = contractService.getContractById(contractId);
-        Path filePath = Paths.get(contract.getS3Key());
-        Resource resource = new FileSystemResource(filePath);
-        
-        if (!resource.exists()) {
+    public ResponseEntity<Resource> getPdf(@PathVariable UUID contractId) {
+        try {
+            Contract contract = contractService.getContractById(contractId);
+            Path filePath = Paths.get(contract.getS3Key());
+            Resource resource = new FileSystemResource(filePath);
+            
+            if (!resource.exists()) {
+                return ResponseEntity.notFound().build();
+            }
+
+            return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"" + contract.getOriginalFilename() + "\"")
+                .contentType(MediaType.APPLICATION_PDF)
+                .body(resource);
+        } catch (Exception e) {
             return ResponseEntity.notFound().build();
         }
-
-        return ResponseEntity.ok()
-            .header(HttpHeaders.CONTENT_DISPOSITION, 
-                "inline; filename=\"" + contract.getOriginalFilename() + "\"")
-            .contentType(MediaType.APPLICATION_PDF)
-            .body(resource);
-    } catch (Exception e) {
-        return ResponseEntity.notFound().build();
     }
-}
-}
+} // <--- This one closes the whole class

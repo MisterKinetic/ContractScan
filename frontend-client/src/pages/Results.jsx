@@ -5,7 +5,7 @@ import { FileText, AlertTriangle, CheckCircle, XCircle, ChevronDown, ChevronUp, 
 import { useEffect, useRef, useState } from 'react'
 import Logo from '../components/Logo'
 
-const API_BASE = 'http://localhost:8080/api'
+const API_BASE = '/api'
 
 const riskConfig = {
   red: {
@@ -130,7 +130,7 @@ const wsRef = useRef(null)
   const SockJS = window.SockJS
   if (!SockJS) return
 
-  const socket = new SockJS('http://localhost:8080/ws')
+  const socket = new SockJS('/ws')
   wsRef.current = socket
 
   socket.onopen = () => {
@@ -373,7 +373,7 @@ const wsRef = useRef(null)
   <div className="bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 rounded-2xl p-4 mb-6 max-h-96 overflow-y-auto">
     <p className="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-3">Original Document</p>
     <PDFViewer
-      pdfUrl={`http://localhost:8080/api/contracts/${contractId}/pdf`}
+      pdfUrl={`/api/contracts/${contractId}/pdf`}
       findings={data?.findings || []}
       activeFinding={activeFinding}
     />
