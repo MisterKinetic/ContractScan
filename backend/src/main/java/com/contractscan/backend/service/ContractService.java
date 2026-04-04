@@ -48,7 +48,10 @@ public class ContractService {
             Files.createDirectories(uploadPath);
         }
 
-        String filename = UUID.randomUUID() + "_" + file.getOriginalFilename();
+        String originalFilename = file.getOriginalFilename() != null ? file.getOriginalFilename() : "contract.pdf";
+        String sanitizedOriginalFilename = originalFilename.replaceAll("[^a-zA-Z0-9._-]", "_");
+
+        String filename = UUID.randomUUID() + "_" + sanitizedOriginalFilename;
         Path filePath = uploadPath.resolve(filename);
         file.transferTo(filePath.toFile());
 
@@ -56,7 +59,7 @@ public class ContractService {
 
         Contract contract = new Contract();
         contract.setUserId(userId);
-        contract.setOriginalFilename(file.getOriginalFilename());
+        contract.setOriginalFilename(sanitizedOriginalFilename);
         contract.setS3Key(filePath.toString());
         contract.setStatus("uploaded");
         contract = contractRepository.save(contract);

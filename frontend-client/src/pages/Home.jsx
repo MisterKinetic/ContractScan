@@ -32,8 +32,14 @@ export default function Home() {
   const onDrop = useCallback(async (acceptedFiles) => {
     const file = acceptedFiles[0]
     if (!file) return
+
     if (!file.name.toLowerCase().endsWith('.pdf')) {
-      setError('Only PDF files are supported')
+      setError('Invalid file type — only PDF files accepted')
+      return
+    }
+
+    if (file.size > 20 * 1024 * 1024) {
+      setError('File too large — maximum 20MB')
       return
     }
 
@@ -50,7 +56,18 @@ export default function Home() {
 
       navigate(`/results/${response.data.contractId}`)
     } catch (err) {
-      setError('Upload failed. Make sure the backend is running.')
+      if (err.response) {
+        // Backend returned a specific error message
+        const message = typeof err.response.data === 'string' 
+          ? err.response.data 
+          : (err.response.data.message || 'Upload failed')
+        setError(message)
+      } else if (err.request) {
+        // Request made but no response received (backend down)
+        setError('Service unavailable, please try again')
+      } else {
+        setError('Something went wrong. Please try again.')
+      }
       setUploading(false)
     }
   }, [navigate])

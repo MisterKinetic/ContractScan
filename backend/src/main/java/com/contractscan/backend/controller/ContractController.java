@@ -32,39 +32,52 @@ public class ContractController {
     private final ContractService contractService;
 
     @PostMapping("/upload")
-public ResponseEntity<?> uploadContract(
-        @RequestParam("file") MultipartFile file,
-        Authentication authentication) {
+    public ResponseEntity<?> uploadContract(
+            @RequestParam("file") MultipartFile file,
+            Authentication authentication) {
 
-    String email;
+        String email;
 
-    // 1. Determine identity: Logged in vs Guest
-    if (authentication != null && authentication.isAuthenticated()) {
-        if (authentication.getPrincipal() instanceof OAuth2User oauthUser) {
-            email = oauthUser.getAttribute("email");
+        // 1. Determine identity: Logged in vs Guest
+        if (authentication != null && authentication.isAuthenticated()) {
+            if (authentication.getPrincipal() instanceof OAuth2User oauthUser) {
+                email = oauthUser.getAttribute("email");
+            } else {
+                email = authentication.getName();
+            }
         } else {
-            email = authentication.getName();
+            // Fallback for Guest
+            email = "guest@contractscan.local";
         }
-    } else {
-        // Fallback for Guest
-        email = "guest@contractscan.local"; 
-    }
 
-    // 2. Error Check (only if even guest identification fails somehow)
-    if (email == null) {
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Email not found");
-    }
+        // 2. Validation
+        if (file.isEmpty()) {
+            return ResponseEntity.badRequest().body("Please select a file to upload");
+        }
 
-    try {
-        log.info("Processing upload for: {}", email);
-        // Your existing service call
-        ContractUploadResponse response = contractService.uploadContract(file, email);
-        return ResponseEntity.ok(response);
-    } catch (Exception e) {
-        log.error("Upload error: {}", e.getMessage());
-        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(e.getMessage());
+        if (file.getSize() > 20 * 1024 * 1024) {
+            return ResponseEntity.status(HttpStatus.PAYLOAD_TOO_LARGE).body("File too large — maximum 20MB");
+        }
+
+        if (!"application/pdf".equalsIgnoreCase(file.getContentType())) {
+            return ResponseEntity.badRequest().body("Invalid file type — only PDF files accepted");
+        }
+
+        // 3. Error Check (email)
+        if (email == null) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Email not found");
+        }
+
+        try {
+            log.info("Processing upload for: {}", email);
+            // Your existing service call
+            ContractUploadResponse response = contractService.uploadContract(file, email);
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            log.error("Upload error: {}", e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(e.getMessage());
+        }
     }
-}
 
     @GetMapping("/{contractId}/status")
     public ResponseEntity<ContractUploadResponse> getStatus(@PathVariable UUID contractId) {
@@ -89,12 +102,11 @@ public ResponseEntity<?> uploadContract(
         if (authentication != null && authentication.getPrincipal() instanceof OAuth2User user) {
             String email = user.getAttribute("email");
             String name = user.getAttribute("name");
-            
+
             return ResponseEntity.ok(Map.of(
-                "loggedIn", true, 
-                "email", email,
-                "name", name != null ? name : "User"
-            ));
+                    "loggedIn", true,
+                    "email", email,
+                    "name", name != null ? name : "User"));
         }
         return ResponseEntity.ok(Map.of("loggedIn", false));
     }
@@ -125,17 +137,19 @@ public ResponseEntity<?> uploadContract(
             Contract contract = contractService.getContractById(contractId);
             Path filePath = Paths.get(contract.getS3Key());
             Resource resource = new FileSystemResource(filePath);
-            
+
             if (!resource.exists()) {
                 return ResponseEntity.notFound().build();
             }
 
             return ResponseEntity.ok()
-                .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"" + contract.getOriginalFilename() + "\"")
-                .contentType(MediaType.APPLICATION_PDF)
-                .body(resource);
+                    .header(HttpHeaders.CONTENT_DISPOSITION,
+                            "inline; filename=\"" + contract.getOriginalFilename() + "\"")
+                    .contentType(MediaType.APPLICATION_PDF)
+                    .body(resource);
         } catch (Exception e) {
             return ResponseEntity.notFound().build();
         }
     }
+
 } // <--- This one closes the whole class
