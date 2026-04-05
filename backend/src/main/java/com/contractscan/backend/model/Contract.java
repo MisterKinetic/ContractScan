@@ -37,6 +37,9 @@ public class Contract {
     @Column(name = "processing_completed_at")
     private LocalDateTime processingCompletedAt;
 
+    @Column(name = "share_token", unique = true)
+    private String shareToken;
+
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt = LocalDateTime.now();
 }

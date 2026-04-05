@@ -9,6 +9,7 @@ function App() {
       <Routes>
         <Route path="/" element={<Home />} />
         <Route path="/results/:contractId" element={<Results />} />
+        <Route path="/share/:token" element={<Results isShared={true} />} />
         <Route path="/history" element={<History />} />
       </Routes>
     </BrowserRouter>

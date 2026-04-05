@@ -152,4 +152,14 @@ public class ContractController {
         }
     }
 
+    @PostMapping("/{contractId}/share")
+    public ResponseEntity<?> shareContract(@PathVariable UUID contractId) {
+        try {
+            String token = contractService.generateShareToken(contractId);
+            return ResponseEntity.ok(Map.of("token", token));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(e.getMessage());
+        }
+    }
+
 } // <--- This one closes the whole class

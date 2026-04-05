@@ -1,6 +1,7 @@
 package com.contractscan.backend.service;
 
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;
@@ -11,8 +12,11 @@ import java.util.UUID;
 @Slf4j
 public class PythonPipelineService {
 
-    private static final String AI_WORKER_PATH =
-        Paths.get("../ai-worker").toAbsolutePath().toString();
+    private final String aiWorkerPath;
+
+    public PythonPipelineService(@Value("${ai.worker.path:../ai-worker}") String aiWorkerPath) {
+        this.aiWorkerPath = Paths.get(aiWorkerPath).toAbsolutePath().toString();
+    }
 
     public void runPipeline(UUID contractId, String filePath) {
         // Run in background thread so API stays responsive
@@ -43,8 +47,10 @@ public class PythonPipelineService {
     }
 
     private void runScript(String script, String... args) throws IOException, InterruptedException {
-        String venvPython = AI_WORKER_PATH + "\\.venv\\Scripts\\python.exe";
-        String scriptPath = AI_WORKER_PATH + "\\" + script;
+        String venvPython = getPythonExecutable();
+        String scriptPath = Paths.get(aiWorkerPath, script).toString();
+
+        log.info("Running script: {} with python: {}", script, venvPython);
 
         String[] command = new String[2 + args.length];
         command[0] = venvPython;
@@ -52,13 +58,22 @@ public class PythonPipelineService {
         System.arraycopy(args, 0, command, 2, args.length);
 
         ProcessBuilder pb = new ProcessBuilder(command);
-        pb.directory(Paths.get(AI_WORKER_PATH).toFile());
+        pb.directory(Paths.get(aiWorkerPath).toFile());
         pb.inheritIO(); // Show Python logs in Spring Boot console
         Process process = pb.start();
         int exitCode = process.waitFor();
 
         if (exitCode != 0) {
             throw new RuntimeException("Script " + script + " failed with exit code " + exitCode);
+        }
+    }
+
+    private String getPythonExecutable() {
+        boolean isWindows = System.getProperty("os.name").toLowerCase().contains("win");
+        if (isWindows) {
+            return Paths.get(aiWorkerPath, ".venv", "Scripts", "python.exe").toString();
+        } else {
+            return Paths.get(aiWorkerPath, ".venv", "bin", "python").toString();
         }
     }
 }

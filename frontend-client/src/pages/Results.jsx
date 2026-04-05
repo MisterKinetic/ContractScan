@@ -1,7 +1,7 @@
 import PDFViewer from '../components/PDFViewer'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import axios from 'axios'
-import { FileText, AlertTriangle, CheckCircle, XCircle, ChevronDown, ChevronUp, ArrowLeft, Moon, Sun } from 'lucide-react'
+import { FileText, AlertTriangle, CheckCircle, XCircle, ChevronDown, ChevronUp, ArrowLeft, Moon, Sun, Share2, Check } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import Logo from '../components/Logo'
 
@@ -102,8 +102,8 @@ function RiskMeter({ score }) {
   )
 }
 
-export default function Results() {
-  const { contractId } = useParams()
+export default function Results({ isShared = false }) {
+  const { contractId, token } = useParams()
   const navigate = useNavigate()
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -112,13 +112,15 @@ export default function Results() {
   const [activeFinding, setActiveFinding] = useState(null)
   const [user, setUser] = useState(null)
   const [darkMode, setDarkMode] = useState(() => {
-  return localStorage.getItem('darkMode') === 'true'
+    return localStorage.getItem('darkMode') === 'true'
   })
-  const [polling, setPolling] = useState(true)
+  const [polling, setPolling] = useState(!isShared)
   const [progressMessage, setProgressMessage] = useState('Starting pipeline...')
-const [progressPercent, setProgressPercent] = useState(0)
-const [progressSteps, setProgressSteps] = useState([])
-const wsRef = useRef(null)
+  const [progressPercent, setProgressPercent] = useState(0)
+  const [progressSteps, setProgressSteps] = useState([])
+  const [sharing, setSharing] = useState(false)
+  const [shared, setShared] = useState(false)
+  const wsRef = useRef(null)
   useEffect(() => {
     if (darkMode) {
       document.documentElement.classList.add('dark')
@@ -127,6 +129,22 @@ const wsRef = useRef(null)
       document.documentElement.classList.remove('dark')
     }
   }, [darkMode])
+
+  useEffect(() => {
+    if (!isShared) return;
+    const fetchSharedResults = async () => {
+      try {
+        const res = await axios.get(`${API_BASE}/share/${token}`)
+        setData(res.data)
+        setLoading(false)
+      } catch (err) {
+        setError('Invalid or expired share link.')
+        setLoading(false)
+      }
+    }
+    fetchSharedResults()
+  }, [isShared, token])
+
    useEffect(() => {
   const SockJS = window.SockJS
   if (!SockJS) return
@@ -208,7 +226,22 @@ const wsRef = useRef(null)
     fetchResults()
     const interval = setInterval(fetchResults, 5000)
     return () => clearInterval(interval)
-  }, [contractId, polling])
+  }, [contractId, polling, isShared])
+
+  const handleShare = async () => {
+    setSharing(true)
+    try {
+      const res = await axios.post(`${API_BASE}/contracts/${contractId}/share`)
+      const shareUrl = `${window.location.origin}/share/${res.data.token}`
+      await navigator.clipboard.writeText(shareUrl)
+      setShared(true)
+      setTimeout(() => setShared(false), 2000)
+    } catch (err) {
+      console.error('Failed to share', err)
+    } finally {
+      setSharing(false)
+    }
+  }
 
   const filteredFindings = data?.findings?.filter(f =>
     filter === 'all' ? true : f.riskLevel === filter
@@ -234,15 +267,27 @@ const wsRef = useRef(null)
               </span>
             </div>
           </div>
-          <button
-            onClick={() => setDarkMode(!darkMode)}
-            className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
-          >
-            {darkMode
-              ? <Sun className="w-5 h-5 text-gray-400" />
-              : <Moon className="w-5 h-5 text-gray-500" />
-            }
-          </button>
+          <div className="flex items-center gap-3">
+            {!isShared && data && (
+              <button
+                onClick={handleShare}
+                disabled={sharing}
+                className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-xl text-sm font-medium hover:bg-blue-700 transition-colors disabled:opacity-50"
+              >
+                {shared ? <Check className="w-4 h-4" /> : <Share2 className="w-4 h-4" />}
+                {shared ? 'Copied!' : 'Share Report'}
+              </button>
+            )}
+            <button
+              onClick={() => setDarkMode(!darkMode)}
+              className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+            >
+              {darkMode
+                ? <Sun className="w-5 h-5 text-gray-400" />
+                : <Moon className="w-5 h-5 text-gray-500" />
+              }
+            </button>
+          </div>
         </nav>
 
        {loading && (
@@ -374,7 +419,7 @@ const wsRef = useRef(null)
   <div className="bg-white dark:bg-gray-900 border border-gray-100 dark:border-gray-800 rounded-2xl p-4 mb-6 max-h-96 overflow-y-auto">
     <p className="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-3">Original Document</p>
     <PDFViewer
-      pdfUrl={`/api/contracts/${contractId}/pdf`}
+      pdfUrl={`/api/contracts/${data?.contractId}/pdf`}
       findings={data?.findings || []}
       activeFinding={activeFinding}
     />

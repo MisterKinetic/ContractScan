@@ -211,4 +211,23 @@ private UUID getUserIdByEmail(String email) {
             );
         }).toList();
     }
+
+    public String generateShareToken(UUID contractId) {
+        Contract contract = contractRepository.findById(contractId)
+            .orElseThrow(() -> new RuntimeException("Contract not found"));
+        
+        if (contract.getShareToken() == null) {
+            contract.setShareToken(UUID.randomUUID().toString().replace("-", ""));
+            contractRepository.save(contract);
+        }
+        
+        return contract.getShareToken();
+    }
+
+    public ContractResultsResponse getResultsByShareToken(String token) {
+        Contract contract = contractRepository.findByShareToken(token)
+            .orElseThrow(() -> new RuntimeException("Invalid share token"));
+            
+        return getResults(contract.getId());
+    }
 }
