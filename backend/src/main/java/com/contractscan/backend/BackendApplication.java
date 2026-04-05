@@ -16,9 +16,9 @@ public class BackendApplication {
     public static void main(String[] args) {
         try {
             Dotenv dotenv = Dotenv.configure()
-                .directory("./")
-                .ignoreIfMissing()
-                .load();
+                    .directory("./")
+                    .ignoreIfMissing()
+                    .load();
             dotenv.entries().forEach(entry -> {
                 if (System.getProperty(entry.getKey()) == null) {
                     System.setProperty(entry.getKey(), entry.getValue());
@@ -34,7 +34,8 @@ public class BackendApplication {
     public CommandLineRunner debugEnv(Environment env) {
         return args -> {
             System.out.println("DEBUG: GOOGLE_CLIENT_ID = " + env.getProperty("GOOGLE_CLIENT_ID"));
-            System.out.println("DEBUG: oauth2 client-id = " + env.getProperty("spring.security.oauth2.client.registration.google.client-id"));
+            System.out.println("DEBUG: oauth2 client-id = "
+                    + env.getProperty("spring.security.oauth2.client.registration.google.client-id"));
         };
     }
 }
